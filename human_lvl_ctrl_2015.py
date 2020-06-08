@@ -14,6 +14,7 @@ from deep_rl.agent import RLAgent
 from deep_rl.preprocessing import DQNAtariPreprocessor
 from deep_rl.models import AtariDQNQNet
 from deep_rl.agent.value_functions import DeepQNetwork
+from deep_rl.agent.exploration import EpsilonGreedyExplorationStrategy
 
 # %% Create the environment
 env = gym.make('SpaceInvaders-v0')
@@ -22,7 +23,8 @@ env = gym.make('SpaceInvaders-v0')
 
 agent = RLAgent(
     observation_preprocessor=DQNAtariPreprocessor(),
-    action_value_function=DeepQNetwork(AtariDQNQNet(env.action_space.n))
+    action_value_function=DeepQNetwork(AtariDQNQNet(env.action_space.n)),
+    exploration_strategy=EpsilonGreedyExplorationStrategy(initial_epsilon=1, final_epsilon=0.1, decay=0.9/1e6)
 )
 
 # %%
@@ -31,7 +33,7 @@ reward = 0
 
 for i in range(1000):
     env.render()
-    action = agent.update(observation=observation, reward=reward)
+    action = agent.update(observation=observation, reward=reward, done=done)
     observation, reward, done, info = env.step(action=action)
 
 env.close()

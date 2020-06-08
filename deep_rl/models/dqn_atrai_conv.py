@@ -16,9 +16,7 @@ class AtariDQNQNet(torch.nn.Module):
     def forward(self, inputs):
         x = self._relu.forward(self._conv1.forward(inputs))
         x = self._relu.forward(self._conv2.forward(x))
-        print(x.shape)
         x = torch.flatten(x, start_dim=1)
-        print(x.shape)
         x = self._relu.forward(self._linear1(x))
         x = self._linear2(x)
         return x
