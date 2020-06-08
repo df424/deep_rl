@@ -1,22 +1,24 @@
 
-import tensorflow as tf
+import torch
 
-class AtariDQNQNet(tf.keras.Model):
+class AtariDQNQNet(torch.nn.Module):
 
     def __init__(self, num_actions: int):
         super(AtariDQNQNet, self).__init__()
         self._num_actions = num_actions
 
-        self._conv1 = tf.keras.layers.Conv2D(filters=16, kernel_size=(8,8), strides=(4,4), activation='relu')
-        self._conv2 = tf.keras.layers.Conv2D(filters=32, kernel_size=(4,4), strides=(2,2), activation='relu')
-        self._flatten = tf.keras.layers.Flatten()
-        self._linear1 = tf.keras.layers.Dense(256, activation='relu')
-        self._linear2 = tf.keras.layers.Dense(self._num_actions)
+        self._conv1 = torch.nn.Conv2d(4, 16, kernel_size=8, stride=4)
+        self._relu = torch.nn.ReLU(False)
+        self._conv2 = torch.nn.Conv2d(16, 32, kernel_size=4, stride=2)
+        self._linear1 = torch.nn.Linear(in_features=2592, out_features=256)
+        self._linear2 = torch.nn.Linear(in_features=256, out_features=self._num_actions)
 
-    def call(self, inputs):
-        x = self._conv1(inputs)
-        x = self._conv2(x)
-        x = self._flatten(x)
-        x = self._linear1(x)
+    def forward(self, inputs):
+        x = self._relu.forward(self._conv1.forward(inputs))
+        x = self._relu.forward(self._conv2.forward(x))
+        print(x.shape)
+        x = torch.flatten(x, start_dim=1)
+        print(x.shape)
+        x = self._relu.forward(self._linear1(x))
         x = self._linear2(x)
         return x

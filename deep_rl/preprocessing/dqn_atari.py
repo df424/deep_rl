@@ -23,14 +23,14 @@ class DQNAtariPreprocessor(ObservationPreprocessor):
         # We need to do something about it being a single observation since the dqn
         # is expecting four stacked images we can just duplicate the observation four times..
         if self._first:
-            self._buffer = np.repeat(preped_obs[:,:,np.newaxis], 4, axis=2)
+            self._buffer = np.repeat(preped_obs[np.newaxis,:,:], 4, axis=0)
             self._first = False
 
         # Overwrite the oldest observation.
-        self._buffer[:,:,-1] = preped_obs
+        self._buffer[-1] = preped_obs
 
         # Roll the buffer.
-        self._buffer = np.roll(self._buffer, shift=1, axis=2)
+        self._buffer = np.roll(self._buffer, shift=1, axis=0)
 
         # Finally return the buffer.
         return self._buffer

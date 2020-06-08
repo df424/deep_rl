@@ -6,13 +6,6 @@
 # https://web.stanford.edu/class/psych209/Readings/MnihEtAlHassibis15NatureControlDeepRL.pdf
 # 
 
-# %% Fix the keras issue.
-import tensorflow as tf
-config = tf.ConfigProto()
-
-config.gpu_options.per_process_gpu_memory_fraction=0.9
-tf.keras.backend.tensorflow_backend.set_session(tf.Session(config=config))
-
 # %%
 import gym
 import matplotlib.pyplot as plt
