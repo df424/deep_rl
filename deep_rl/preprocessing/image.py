@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from typing import Tuple
 
 import numpy as np
-from scipy.misc import imresize
 import cv2
+import math
 
 
 class ImagePrepStage(ABC):
@@ -31,7 +31,33 @@ class ImageResizePrepStage(ImagePrepStage):
         self._new_size = new_size
 
     def prep(self, image: np.ndarray) -> np.ndarray:
-        cv2.resize(image, self._new_size)
+        return cv2.resize(image, self._new_size)
+
+class ImageCropStage(ImagePrepStage):
+    def __init__(self, new_size: Tuple[int, int], orient: str='center'):
+        self._new_size = new_size
+        self._orient = orient
+
+    def prep(self, image: np.ndarray) -> np.ndarray:
+        if self._orient == 'center':
+            h = image.shape[0]
+            w = image.shape[1]
+
+            # Find out how many pixels we need to chop off of each dimension. 
+            dh = max(0, h-self._new_size[0])
+            dw = max(0, w-self._new_size[1])
+
+            top = math.floor(dh/2)
+            bot = top + self._new_size[0]
+
+            left = math.floor(dw/2)
+            right = left + self._new_size[1]
+
+            print(f'{h}, {w}, {dh}, {dw}, {top}, {bot}, {left}, {right}')
+
+            return image[top:bot, left:right]
+        else:
+            raise ValueError(f'Unsupported orientation: {self._orient}')
 
 class ImagePrepPipeline():
     def __init__(self):
