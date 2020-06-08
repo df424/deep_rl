@@ -13,5 +13,24 @@ class DQNAtariPreprocessor(ObservationPreprocessor):
         self._image_pipe.add_stage(Rgb2GrayscalePrepStage())
         self._image_pipe.add_stage(ImageValueScalePrepStage(256))
 
+        self._first = True
+
     def prep(self, observation: np.ndarray) -> np.ndarray:
-        return self._image_pipe.prep(observation)
+        # Preprocess the image using the image pipeline.
+        preped_obs = self._image_pipe.prep(observation)
+
+        # If this is the first time weve been asked to update an observation
+        # We need to do something about it being a single observation since the dqn
+        # is expecting four stacked images we can just duplicate the observation four times..
+        if self._first:
+            self._buffer = np.repeat(preped_obs[:,:,np.newaxis], 4, axis=2)
+            self._first = False
+
+        # Overwrite the oldest observation.
+        self._buffer[:,:,-1] = preped_obs
+
+        # Roll the buffer.
+        self._buffer = np.roll(self._buffer, shift=1, axis=2)
+
+        # Finally return the buffer.
+        return self._buffer
