@@ -53,8 +53,6 @@ class ImageCropStage(ImagePrepStage):
             left = math.floor(dw/2)
             right = left + self._new_size[1]
 
-            print(f'{h}, {w}, {dh}, {dw}, {top}, {bot}, {left}, {right}')
-
             return image[top:bot, left:right]
         else:
             raise ValueError(f'Unsupported orientation: {self._orient}')
