@@ -1,0 +1,3 @@
+
+from deep_rl.agent.value_functions.value_function import ActionValueFunction
+from deep_rl.agent.value_functions.deep_q_network import DeepQNetwork
