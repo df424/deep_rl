@@ -9,6 +9,6 @@ class RLAgent():
         pass
 
     def update(self, observation: np.ndarray, reward: float) -> int:
-        log.debug(f'Observation Shape: {observation.shape}, Reward: {reward}')
+        log.debug(f'Observation Shape: {observation.shape}, Observation Mean: {observation.mean()}, Reward: {reward}')
         return 0
 
