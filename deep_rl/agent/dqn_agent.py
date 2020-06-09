@@ -16,6 +16,7 @@ log = get_logger('Agent')
 class DQNAtariAgent(RLAgent):
     def __init__(self,
         num_actions: int,
+        discount_rate: float,
         replay_buffer_size: int= 1000000,
         action_value_function: torch.nn.Module = None,
         observation_preprocessor: ObservationPreprocessor = None,
@@ -34,24 +35,31 @@ class DQNAtariAgent(RLAgent):
         self._observation_prep = observation_preprocessor
         self._action_value_fx = action_value_function
         self._exploration_strategy = exploration_strategy
+        self._discount_rate = discount_rate
+
+        # Setup our optimizer.
+        self._optimizer = torch.optim.RMSprop(self._action_value_fx.parameters(), lr=0.01)
 
         # Create a replay buffer.
         self._replay_buffer = ReplayBuffer(replay_buffer_size)
 
         # We need to keep track of our last action so we can update when we get a new result.
+        self._first_update = True
         self._last_action = None
         self._last_observation = None
         
 
-    def update(self, observation: np.ndarray, reward: float, done: bool) -> int:
+    def step(self, observation: np.ndarray, reward: float, done: bool) -> int:
         if self._observation_prep:
             observation = self._observation_prep.prep(observation)
 
         observation = torch.tensor(observation, dtype=torch.float32).unsqueeze(0)
 
         # If we have a last action (First iteration we do not) update the replay buffer.
-        if self._last_action:
-            self._replay_buffer.store((self._last_observation, self._last_action, reward, observation))
+        if not self._first_update:
+            self._replay_buffer.store((self._last_observation, self._last_action, reward, observation, done))
+        else:
+            self._first_update = False
 
         # Using the action value function try to select an action. 
         action_space = self._action_value_fx.forward(observation)
@@ -66,6 +74,40 @@ class DQNAtariAgent(RLAgent):
         self._last_observation = observation
 
         return action
+
+    def update(self, batch_size: int):
+        # Zero out gradients for training.
+        self._action_value_fx.zero_grad()
+
+        # sample input sapce
+        obs, actions, rewards, next_obs, done = zip(*self._replay_buffer.sample(batch_size))
+
+        # Make all our samples into the correct format.
+        obs = torch.cat(obs, axis=0)
+        actions = torch.tensor(actions)
+        rewards = torch.tensor(rewards)
+        next_obs = torch.cat(next_obs, axis=0)
+        done = torch.tensor(done)
+
+        # Get the predicted reward for the actions (q values).
+        q_val = self._action_value_fx.forward(obs).gather(1, actions.view(batch_size, 1))
+        # Get the max q value but don't compute gradient since this represents our "True value".
+        with torch.no_grad():
+            q_val_max = self._action_value_fx.forward(next_obs).max(dim=1)[0]
+        # Now we can compute the target value of our q function
+        # Where the target value is equal to the reward if hte state is terminal, or
+        # its equal to the reward plus the discount rate of the next value if it is not terminal.
+        targets = (~done).float()*rewards+self._discount_rate*q_val_max + done.float()*rewards
+
+        # Now finally we can compute the loss according to the dqn paper its just the squared error. 
+        # of the estimate minus the predicted q value.
+        loss = torch.sum((targets-q_val.view(-1))**2)
+
+        # Now finally we can back prop.
+        loss.backward()
+
+        # And optimize.
+        self._optimizer.step()
 
 
 class DQNAtariQNet(torch.nn.Module):

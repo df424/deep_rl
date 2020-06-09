@@ -15,18 +15,19 @@ from deep_rl.agent import DQNAtariAgent
 env = gym.make('SpaceInvaders-v0')
 
 # %% Setup the agent.
-agent = DQNAtariAgent(env.action_space.n)
+agent = DQNAtariAgent(env.action_space.n, discount_rate=0.99)
 
 # %%
 observation = env.reset()
 reward = 0
 done = False
 
-for i in range(1000):
+for i in range(100):
     env.render()
-    action = agent.update(observation=observation, reward=reward, done=done)
+    action = agent.step(observation=observation, reward=reward, done=done)
     observation, reward, done, info = env.step(action=action)
 
-env.close()
+    if i > 32:
+        agent.update(32)
 
-# %%
+env.close()
