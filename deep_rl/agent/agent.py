@@ -10,3 +10,7 @@ class RLAgent(ABC):
     @abstractmethod
     def update(self, batch_size: int):
         pass
+
+    @abstractmethod
+    def save(self, path: str):
+        pass

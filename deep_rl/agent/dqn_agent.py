@@ -12,15 +12,15 @@ from deep_rl.preprocessing import DQNAtariPreprocessor
 
 log = get_logger('Agent')
 
-
 class DQNAtariAgent(RLAgent):
     def __init__(self,
         num_actions: int,
         discount_rate: float,
-        replay_buffer_size: int= 1000000,
+        replay_buffer_size: int=10000,
         action_value_function: torch.nn.Module = None,
         observation_preprocessor: ObservationPreprocessor = None,
-        exploration_strategy: ExplorationStrategy = None
+        exploration_strategy: ExplorationStrategy = None,
+        device: str = 'cuda:0'
         ):
 
         if not action_value_function:
@@ -36,6 +36,7 @@ class DQNAtariAgent(RLAgent):
         self._action_value_fx = action_value_function
         self._exploration_strategy = exploration_strategy
         self._discount_rate = discount_rate
+        self._device = device
 
         # Setup our optimizer.
         self._optimizer = torch.optim.RMSprop(self._action_value_fx.parameters(), lr=0.01)
@@ -47,13 +48,18 @@ class DQNAtariAgent(RLAgent):
         self._first_update = True
         self._last_action = None
         self._last_observation = None
+
+        # PUt the model on cuda if available.
+        log.info(f'cuda={torch.cuda.is_available()}, device={torch.cuda.get_device_name()}')
+        if torch.cuda.is_available():
+            self._action_value_fx.cuda(self._device)
         
 
     def step(self, observation: np.ndarray, reward: float, done: bool) -> int:
         if self._observation_prep:
             observation = self._observation_prep.prep(observation)
 
-        observation = torch.tensor(observation, dtype=torch.float32).unsqueeze(0)
+        observation = torch.tensor(observation, dtype=torch.float32, device=self._device).unsqueeze(0)
 
         # If we have a last action (First iteration we do not) update the replay buffer.
         if not self._first_update:
@@ -84,10 +90,10 @@ class DQNAtariAgent(RLAgent):
 
         # Make all our samples into the correct format.
         obs = torch.cat(obs, axis=0)
-        actions = torch.tensor(actions)
-        rewards = torch.tensor(rewards)
+        actions = torch.tensor(actions, device=self._device)
+        rewards = torch.tensor(rewards, device=self._device)
         next_obs = torch.cat(next_obs, axis=0)
-        done = torch.tensor(done)
+        done = torch.tensor(done, device=self._device)
 
         # Get the predicted reward for the actions (q values).
         q_val = self._action_value_fx.forward(obs).gather(1, actions.view(batch_size, 1))
@@ -108,6 +114,14 @@ class DQNAtariAgent(RLAgent):
 
         # And optimize.
         self._optimizer.step()
+
+    def save(self, path: str):
+        torch.save(self._action_value_fx, path)
+
+    @staticmethod
+    def load(path: str) -> RLAgent:
+        q_fx = torch.load(path)
+        return DQNAtariAgent(0, 0.99, action_value_function=q_fx)
 
 
 class DQNAtariQNet(torch.nn.Module):
