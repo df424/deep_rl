@@ -1,6 +1,8 @@
 
-from deep_rl.agent.exploration.exploration_strategy import ExplorationStrategy
 import random
+import numpy as np
+
+from deep_rl.agent.exploration.exploration_strategy import ExplorationStrategy
 
 class EpsilonGreedyExplorationStrategy(ExplorationStrategy):
     def __init__(self, initial_epsilon: float, final_epsilon:float=None, decay:float=None):
