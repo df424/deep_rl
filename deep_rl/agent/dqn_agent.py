@@ -100,7 +100,7 @@ class DQNAtariAgent(RLAgent):
     def update(self, batch_size: int):
         # Only update if our replay buffer is large enough...
         if len(self._replay_buffer) < batch_size:
-            return
+            return 0
 
         # Keep track of how many times we have updated so we know when to copy our target function.
         self._update_count += 1
@@ -130,7 +130,7 @@ class DQNAtariAgent(RLAgent):
         # Now we can compute the target value of our q function
         # Where the target value is equal to the reward if hte state is terminal, or
         # its equal to the reward plus the discount rate of the next value if it is not terminal.
-        targets = (~done).float()*rewards+self._discount_rate*q_val_max + done.float()*rewards
+        targets = (~done).float()*self._discount_rate*q_val_max + rewards
 
         # Now finally we can compute the loss according to the dqn paper its just the squared error. 
         # of the estimate minus the predicted q value.
@@ -141,6 +141,10 @@ class DQNAtariAgent(RLAgent):
 
         # And optimize.
         self._optimizer.step()
+
+        # Return the loss value so we can log it in the history.
+        return loss.item()
+
 
     def save(self, path: str):
         torch.save(self._action_value_fx, path)

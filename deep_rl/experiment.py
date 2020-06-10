@@ -20,7 +20,9 @@ class Experiment():
         self._batch_size = batch_size
         self.history = {
             'rewards': [],
-            'best_reward': 0
+            'best_reward': 0,
+            'episode_losses': [],
+            'losses': [],
         }
 
     def run(self, n_frames: int):
@@ -35,6 +37,8 @@ class Experiment():
         episode_step = 0
         reward_sum = 0
         no_ops = random.randint(0, self._max_no_ops)
+        loss_sum = 0
+        num_updates = 0
 
         # Create a progress bar to loop over the frames.
         pbar = tqdm.trange(n_frames)
@@ -43,9 +47,10 @@ class Experiment():
                 # Store episode metrics.
                 self.history['rewards'].append(reward_sum)
                 self.history['best_reward'] = max(self.history['best_reward'], reward_sum) 
+                self.history['episode_losses'].append(loss_sum/num_updates)
                 epside_count += 1
 
-                pbar.set_description(f'Reward={reward_sum}, BestReward={self.history["best_reward"]}')
+                pbar.set_description(f'Reward={reward_sum}, BestReward={self.history["best_reward"]}, AvgLoss={self.history["episode_losses"][-1]:.4f}')
 
                 # reset episode parameters
                 done = False
@@ -54,7 +59,9 @@ class Experiment():
                 last_observation = observation = self._env.reset()
                 episode_step = 0
                 reward_sum = 0
-                no_ops = random.randint(0, self._max_no_ops)
+                no_ops = random.randint(1, self._max_no_ops)
+                loss_sum = 0
+                num_updates = 0
 
             
             # Make it variable what frame we start on.
@@ -67,7 +74,7 @@ class Experiment():
             reward += max(-1, min(1, step_reward))
 
             # If we are not in the no-op period of the episode.
-            if episode_step > no_ops:
+            if episode_step > no_ops and episode_step > 0:
                 # only let the agent see every fourth frame.
                 if i % 4 == 0:
                     action = self._agent.step(no_flicker_observation, reward, done)
@@ -76,7 +83,10 @@ class Experiment():
 
                 # Only let the agent update every fourth frame that it sees.
                 if i % 16 == 0:
-                    self._agent.update(self._batch_size)
+                    loss = self._agent.update(self._batch_size)
+                    self.history['losses'].append(loss)
+                    loss_sum += loss
+                    num_updates += 1
             
             # Update episode variables
             last_observation = observation
