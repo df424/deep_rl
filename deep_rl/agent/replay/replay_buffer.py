@@ -20,5 +20,8 @@ class ReplayBuffer():
 
     def sample(self, n: int):
         return random.sample(self._memory, min(n, len(self._memory)))
+
+    def __len__(self):
+        return len(self._memory)
         
         
