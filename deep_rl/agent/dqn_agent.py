@@ -46,7 +46,7 @@ class DQNAtariAgent(RLAgent):
         self._action_value_fx = action_value_function
         self._exploration_strategy = exploration_strategy
         self._discount_rate = discount_rate
-        self._device = device
+        self._device = torch.device(device)
         self._target_update_period = target_update_period
         self._eval = False
 
@@ -68,8 +68,8 @@ class DQNAtariAgent(RLAgent):
         # Put the model on cuda if available.
         log.info(f'cuda={torch.cuda.is_available()}, device={torch.cuda.get_device_name()}')
         if torch.cuda.is_available():
-            self._target_fx.cuda(self._device)
-            self._action_value_fx.cuda(self._device)
+            self._target_fx.to(self._device)
+            self._action_value_fx.to(self._device)
         
 
     def step(self, observation: np.ndarray, reward: float, done: bool) -> int:
@@ -128,11 +128,11 @@ class DQNAtariAgent(RLAgent):
         # Make all our samples into the correct format.
         obs = torch.cat(obs, axis=0)
         obs.requires_grad_(True)
-        obs.cuda()
+        obs.to(self._device)
 
         next_obs = torch.cat(next_obs, axis=0)
         #next_obs.requires_grad_(True)
-        next_obs.cuda()
+        next_obs.to(self._device)
 
         actions = torch.tensor(actions, device=self._device)
         rewards = torch.tensor(rewards, device=self._device)
