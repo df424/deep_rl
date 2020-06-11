@@ -1,38 +1,45 @@
 
 # Needed for experiment...
+from torch.utils.tensorboard import SummaryWriter
+
 import random
 import tqdm.autonotebook as tqdm
 import gym
 import numpy as np
+import os
 
 from deep_rl.agent import RLAgent
+
 
 class Experiment():
     def __init__(self, 
         agent: RLAgent, 
         env: gym.Env,
+        output_dir: str,
         max_no_ops: int = 30,
         batch_size: int = 32,
+        eval_freq: int = 100000
     ):
+
+        # %% Create the tensorboard logger.
+        self._writer = SummaryWriter(os.path.join(output_dir, 'logs'))
+        self._output_dir = output_dir
         self._agent = agent
         self._env = env
         self._max_no_ops = max_no_ops
         self._batch_size = batch_size
-        self.history = {
-            'rewards': [],
-            'best_reward': 0,
-            'episode_losses': [],
-            'losses': [],
-        }
+        self._eval_freq = eval_freq
+        self._best_performance = -1e10
 
     def run(self, n_frames: int):
         # experiment parameters.
-        epside_count = 1
+        episode_count = 0
 
         # episode parameters
         done = False
         action = 0
         reward = 0
+        best_reward = 0
         last_observation = observation = self._env.reset()
         episode_step = 0
         reward_sum = 0
@@ -44,13 +51,21 @@ class Experiment():
         pbar = tqdm.trange(n_frames)
         for i in pbar:
             if done:
-                # Store episode metrics.
-                self.history['rewards'].append(reward_sum)
-                self.history['best_reward'] = max(self.history['best_reward'], reward_sum) 
-                self.history['episode_losses'].append(loss_sum/num_updates)
-                epside_count += 1
+                if i % self._eval_freq == 0:
+                    self._agent.save(os.path.join(self._output_dir, 'checkpoints', f'dqn_{i}.pt'))
 
-                pbar.set_description(f'Reward={reward_sum}, BestReward={self.history["best_reward"]}, AvgLoss={self.history["episode_losses"][-1]:.4f}')
+                # Write episode metrics.
+                best_reward = max(best_reward, reward_sum) 
+                avg_loss = loss_sum/num_updates
+
+                # Log to the tensorboard.
+                self._writer.add_scalar('Reward/train', reward_sum, episode_count)
+                self._writer.add_scalar('BestReward/train', best_reward, episode_count)
+                self._writer.add_scalar('AverageLoss/train', avg_loss, episode_count)
+
+                episode_count += 1
+
+                pbar.set_description(f'Episode={episode_count}, Reward={reward_sum}, BestReward={best_reward}, AvgLoss={avg_loss:.4f}')
 
                 # reset episode parameters
                 done = False
@@ -80,11 +95,13 @@ class Experiment():
                     action = self._agent.step(no_flicker_observation, reward, done)
                     reward_sum += reward
                     reward = 0
+                    # Given the agent the operturnity to log some stuff.
+                    self._agent.log_metrics(self._writer)
 
                 # Only let the agent update every fourth frame that it sees.
                 if i % 16 == 0:
                     loss = self._agent.update(self._batch_size)
-                    self.history['losses'].append(loss)
+                    self._writer.add_scalar('Loss/train', loss, i)
                     loss_sum += loss
                     num_updates += 1
             

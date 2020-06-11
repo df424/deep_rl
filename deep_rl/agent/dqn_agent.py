@@ -1,5 +1,6 @@
 
 import torch
+from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import random
 import copy
@@ -18,8 +19,8 @@ class DQNAtariAgent(RLAgent):
     def __init__(self,
         num_actions: int,
         discount_rate: float,
-        replay_buffer_size: int=20000,
-        replay_buffer_warmup: int=500,
+        replay_buffer_size: int=25000,
+        replay_buffer_warmup: int=25000,
         target_update_period: int = 10000,
         action_value_function: torch.nn.Module = None,
         observation_preprocessor: ObservationPreprocessor = None,
@@ -34,7 +35,10 @@ class DQNAtariAgent(RLAgent):
             observation_preprocessor = DQNAtariPreprocessor()
 
         if not exploration_strategy:
-            exploration_strategy = EpsilonGreedyExplorationStrategy(initial_epsilon=1, final_epsilon=0.1, decay=0.9/1e6)
+            exploration_strategy = EpsilonGreedyExplorationStrategy(initial_epsilon=1, 
+                                                                    final_epsilon=0.1, 
+                                                                    decay=0.9/1e6,
+                                                                    eval_epsilon=0.05)
 
         self._num_actions = num_actions
         self._replay_buffer_warmup=replay_buffer_warmup
@@ -44,6 +48,7 @@ class DQNAtariAgent(RLAgent):
         self._discount_rate = discount_rate
         self._device = device
         self._target_update_period = target_update_period
+        self._eval = False
 
         # Setup our optimizer.
         self._optimizer = torch.optim.RMSprop(self._action_value_fx.parameters(), lr=0.00005)
@@ -71,10 +76,11 @@ class DQNAtariAgent(RLAgent):
         if self._observation_prep:
             observation = self._observation_prep.prep(observation)
 
-        observation = torch.tensor(observation, dtype=torch.float32, device=self._device).unsqueeze(0)
+        observation = torch.tensor(observation, dtype=torch.float32, device=self._device, requires_grad=False).unsqueeze(0)
 
         # If we have a last action (First iteration we do not) update the replay buffer.
-        if not self._first_step:
+        # as long as we aren't in evaluation mode.
+        if not self._first_step and not self._eval:
             self._replay_buffer.store((self._last_observation, self._last_action, reward, observation, done))
         else:
             self._first_step = False
@@ -84,11 +90,12 @@ class DQNAtariAgent(RLAgent):
             action = random.randint(0, self._num_actions-1)
         else:
             # Using the action value function try to select an action. 
-            action_space = self._action_value_fx.forward(observation)
+            with torch.no_grad():
+                action_space = self._action_value_fx.forward(observation)
 
             # If we were given an exploration strategy use it, otherwise just take argmax (exploit)
             if self._exploration_strategy:
-                action = self._exploration_strategy.pick(action_space)
+                action = self._exploration_strategy.pick(action_space, self._eval)
             else:
                 action = action_space.argmax()
 
@@ -101,6 +108,9 @@ class DQNAtariAgent(RLAgent):
         # Only update if our replay buffer is large enough...
         if len(self._replay_buffer) < batch_size:
             return 0
+
+        if self._eval:
+            raise Exception('Cannot update the agent while running in evaluation mode.')
 
         # Keep track of how many times we have updated so we know when to copy our target function.
         self._update_count += 1
@@ -117,9 +127,15 @@ class DQNAtariAgent(RLAgent):
 
         # Make all our samples into the correct format.
         obs = torch.cat(obs, axis=0)
+        obs.requires_grad_(True)
+        obs.cuda()
+
+        next_obs = torch.cat(next_obs, axis=0)
+        #next_obs.requires_grad_(True)
+        next_obs.cuda()
+
         actions = torch.tensor(actions, device=self._device)
         rewards = torch.tensor(rewards, device=self._device)
-        next_obs = torch.cat(next_obs, axis=0)
         done = torch.tensor(done, device=self._device)
 
         # Get the predicted reward for the actions (q values).
@@ -142,9 +158,13 @@ class DQNAtariAgent(RLAgent):
         # And optimize.
         self._optimizer.step()
 
+        next_obs.detach()
+
         # Return the loss value so we can log it in the history.
         return loss.item()
 
+    def eval(self, eval_mode: bool=True):
+        self._eval = eval_mode
 
     def save(self, path: str):
         torch.save(self._action_value_fx, path)
@@ -153,6 +173,9 @@ class DQNAtariAgent(RLAgent):
     def load(path: str) -> RLAgent:
         q_fx = torch.load(path)
         return DQNAtariAgent(0, 0.99, action_value_function=q_fx)
+
+    def log_metrics(self, writer: SummaryWriter):
+        writer.add_scalar('Agent/epsilon', self._exploration_strategy._epsilon)
 
 
 class DQNAtariQNet(torch.nn.Module):
@@ -181,4 +204,33 @@ class DQNAtariQNet(torch.nn.Module):
         x = self._relu.forward(self._linear1(x))
         x = self._linear2(x)
         return x
+
+class DQNAtariQNet_Nature(torch.nn.Module):
+    def __init__(self, num_actions: int):
+        super(DQNAtariQNet_Nature, self).__init__()
+        self._num_actions = num_actions
+
+        relu_gain = torch.nn.init.calculate_gain('relu')
+        self._conv1 = torch.nn.Conv2d(4, 32, kernel_size=8, stride=4, padding=1)
+        self._conv1 = torch.nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self._conv1 = torch.nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        self._linear1 = torch.nn.Linear(in_features=1000, out_features=512, bias=True)
+        self._linear2 = torch.nn.Linear(in_features=512, out_features=self._num_actions, bias=True)
+
+        torch.nn.init.xavier_normal_(self._conv1.weight, gain=relu_gain)
+        torch.nn.init.xavier_normal_(self._conv2.weight, gain=relu_gain)
+        torch.nn.init.xavier_normal_(self._conv3.weight, gain=relu_gain)
+        torch.nn.init.xavier_normal_(self._linear1.weight, gain=relu_gain)
+        torch.nn.init.xavier_normal_(self._linear2.weight, gain=1)
+
+
+    def forward(self, inputs):
+        c1 = torch.relu(self._conv1.forward(inputs))
+        c2 = torch.relu(self._conv2.forward(c1))
+        c3 = torch.relu(self._conv3.forward(c2))
+        l1 = torch.relu(self._linear1.forward(c3))
+        logits = self._linear2.forward(l1)
+
+        return logits
+
 
