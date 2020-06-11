@@ -12,13 +12,20 @@ import os
 
 from deep_rl.agent import DQNAtariAgent
 from deep_rl.experiment import Experiment
+from deep_rl.agent.dqn_agent import DQNAtariQNet_Nature
 
 # %% Create the environment
 env = gym.make('Breakout-v0')
 
 # %% Setup the agent.
-agent = DQNAtariAgent(env.action_space.n, discount_rate=0.99)
+agent = DQNAtariAgent(
+    env.action_space.n, 
+    discount_rate=0.99,
+    replay_buffer_size=50000,
+    replay_buffer_warmup=50000,
+    action_value_function=DQNAtariQNet_Nature(env.action_space.n)
+)
 
 # %%
-experiment = Experiment(agent=agent, env=env, output_dir='./output/experiment1')
+experiment = Experiment(agent=agent, env=env, output_dir='./output/experiment2')
 experiment.run(50000000)

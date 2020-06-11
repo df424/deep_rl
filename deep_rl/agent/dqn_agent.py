@@ -212,8 +212,8 @@ class DQNAtariQNet_Nature(torch.nn.Module):
 
         relu_gain = torch.nn.init.calculate_gain('relu')
         self._conv1 = torch.nn.Conv2d(4, 32, kernel_size=8, stride=4, padding=1)
-        self._conv1 = torch.nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self._conv1 = torch.nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        self._conv2 = torch.nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self._conv3 = torch.nn.Conv2d(64, 64, kernel_size=3, stride=1)
         self._linear1 = torch.nn.Linear(in_features=1000, out_features=512, bias=True)
         self._linear2 = torch.nn.Linear(in_features=512, out_features=self._num_actions, bias=True)
 
