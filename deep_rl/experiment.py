@@ -50,10 +50,10 @@ class Experiment():
         # Create a progress bar to loop over the frames.
         pbar = tqdm.trange(n_frames)
         for i in pbar:
-            if done:
-                if i % self._eval_freq == 0:
-                    self._agent.save(os.path.join(self._output_dir, 'checkpoints', f'dqn_{i}.pt'))
+            if i % self._eval_freq == 0:
+                self._agent.save(os.path.join(self._output_dir, 'checkpoints', f'dqn_{i}.pt'))
 
+            if done:
                 # Write episode metrics.
                 best_reward = max(best_reward, reward_sum) 
                 avg_loss = loss_sum/num_updates
