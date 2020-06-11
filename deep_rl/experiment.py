@@ -20,6 +20,12 @@ class Experiment():
         batch_size: int = 32,
         eval_freq: int = 100000
     ):
+        # Make sure the directorys we need exist.
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+
+        if not os.path.exists(os.path.join(output_dir, 'checkpoints')):
+            os.mkdir(os.path.join(output_dir, 'checkpoints'))
 
         # %% Create the tensorboard logger.
         self._writer = SummaryWriter(os.path.join(output_dir, 'logs'))
@@ -96,7 +102,7 @@ class Experiment():
                     reward_sum += reward
                     reward = 0
                     # Given the agent the operturnity to log some stuff.
-                    self._agent.log_metrics(self._writer)
+                    self._agent.log_metrics(self._writer, i)
 
                 # Only let the agent update every fourth frame that it sees.
                 if i % 16 == 0:

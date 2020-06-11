@@ -21,9 +21,10 @@ env = gym.make('Breakout-v0')
 agent = DQNAtariAgent(
     env.action_space.n, 
     discount_rate=0.99,
-    replay_buffer_size=50000,
-    replay_buffer_warmup=50000,
-    action_value_function=DQNAtariQNet_Nature(env.action_space.n)
+    replay_buffer_size=100000,
+    replay_buffer_warmup=100000,
+    action_value_function=DQNAtariQNet_Nature(env.action_space.n),
+    optimizer_params = {'lr':0.00025, 'momentum':0.95, 'eps':0.01}
 )
 
 # %%

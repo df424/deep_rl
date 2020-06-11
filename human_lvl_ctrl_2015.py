@@ -9,6 +9,7 @@
 # %%
 import gym
 import os
+import torch
 
 from deep_rl.agent import DQNAtariAgent
 from deep_rl.experiment import Experiment
@@ -16,9 +17,13 @@ from deep_rl.experiment import Experiment
 # %% Create the environment
 env = gym.make('Breakout-v0')
 
-# %% Setup the agent.
-agent = DQNAtariAgent(env.action_space.n, discount_rate=0.99)
+# %% Setup the agent (Comment out the optimizer parameter to duplciate experiment 1).
+agent = DQNAtariAgent(
+    env.action_space.n, 
+    discount_rate=0.99,
+    optimizer_params = {'lr':0.00025, 'momentum':0.95, 'eps':0.01}
+)
 
 # %%
-experiment = Experiment(agent=agent, env=env, output_dir='./output/experiment1')
+experiment = Experiment(agent=agent, env=env, output_dir='./output/experiment3')
 experiment.run(50000000)

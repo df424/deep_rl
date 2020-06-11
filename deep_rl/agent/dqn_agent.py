@@ -1,4 +1,5 @@
 
+from typing import Dict, Any
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
@@ -25,6 +26,7 @@ class DQNAtariAgent(RLAgent):
         action_value_function: torch.nn.Module = None,
         observation_preprocessor: ObservationPreprocessor = None,
         exploration_strategy: ExplorationStrategy = None,
+        optimizer_params: Dict[str, Any] = None,
         device: str = 'cuda:0'
         ):
 
@@ -51,7 +53,10 @@ class DQNAtariAgent(RLAgent):
         self._eval = False
 
         # Setup our optimizer.
-        self._optimizer = torch.optim.RMSprop(self._action_value_fx.parameters(), lr=0.00005)
+        if not optimizer_params:
+            self._optimizer = torch.optim.RMSprop(self._action_value_fx.parameters(), lr=0.00005)
+        else:
+            self._optimizer = torch.optim.RMSprop(self._action_value_fx.parameters(), **optimizer_params)
 
         # Create a replay buffer.
         self._replay_buffer = ReplayBuffer(replay_buffer_size)
@@ -174,8 +179,8 @@ class DQNAtariAgent(RLAgent):
         q_fx = torch.load(path)
         return DQNAtariAgent(0, 0.99, action_value_function=q_fx)
 
-    def log_metrics(self, writer: SummaryWriter):
-        writer.add_scalar('Agent/epsilon', self._exploration_strategy._epsilon)
+    def log_metrics(self, writer: SummaryWriter, iteration: int):
+        writer.add_scalar('Agent/epsilon', self._exploration_strategy._epsilon, iteration)
 
 
 class DQNAtariQNet(torch.nn.Module):

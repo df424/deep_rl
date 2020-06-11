@@ -18,7 +18,7 @@ class EpsilonGreedyExplorationStrategy(ExplorationStrategy):
         else:
             use_rand = random.random() < self._epsilon
             # Either way we should decay epsilon if we aren't in eval mode.
-            self._epsilon = min(self._epsilon-self._decay, self._final_epsilon)
+            self._epsilon = max(self._epsilon-self._decay, self._final_epsilon)
 
         if use_rand:
             return random.randint(0, len(action_space)-1)
