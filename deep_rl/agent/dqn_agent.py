@@ -214,7 +214,7 @@ class DQNAtariQNet_Nature(torch.nn.Module):
         self._conv1 = torch.nn.Conv2d(4, 32, kernel_size=8, stride=4, padding=1)
         self._conv2 = torch.nn.Conv2d(32, 64, kernel_size=4, stride=2)
         self._conv3 = torch.nn.Conv2d(64, 64, kernel_size=3, stride=1)
-        self._linear1 = torch.nn.Linear(in_features=1000, out_features=512, bias=True)
+        self._linear1 = torch.nn.Linear(in_features=100352, out_features=512, bias=True)
         self._linear2 = torch.nn.Linear(in_features=512, out_features=self._num_actions, bias=True)
 
         torch.nn.init.xavier_normal_(self._conv1.weight, gain=relu_gain)
@@ -227,7 +227,7 @@ class DQNAtariQNet_Nature(torch.nn.Module):
     def forward(self, inputs):
         c1 = torch.relu(self._conv1.forward(inputs))
         c2 = torch.relu(self._conv2.forward(c1))
-        c3 = torch.relu(self._conv3.forward(c2))
+        c3 = torch.flatten(torch.relu(self._conv3.forward(c2)), start_dim=1)
         l1 = torch.relu(self._linear1.forward(c3))
         logits = self._linear2.forward(l1)
 
